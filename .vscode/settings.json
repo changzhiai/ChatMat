@@ -1,0 +1,9 @@
+{
+    "python.defaultInterpreterPath": "/opt/anaconda3/bin/python",
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}"
+    ],
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestEnabled": false
+}
+

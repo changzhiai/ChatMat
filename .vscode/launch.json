@@ -1,0 +1,39 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "python": "/opt/anaconda3/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Python: Backend",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/chatmat/backend.py",
+            "console": "integratedTerminal",
+            "python": "/opt/anaconda3/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Python: Test Structure",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/test/test_structure.py",
+            "console": "integratedTerminal",
+            "python": "/opt/anaconda3/bin/python",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ]
+}
+
