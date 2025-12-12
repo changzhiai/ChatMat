@@ -50,7 +50,7 @@ class CalculationRequest(BaseModel):
 
 # --- 3. The "Mock" Foundation Model ---
 # 🛠️ REAL WORLD INTEGRATION: Replace this function with your actual model call.
-def run_foundation_model(atoms: Atoms):
+def test_foundation_model(atoms: Atoms):
     """
     Simulates a foundation model calculation.
     Returns: Energy (eV) and Forces (eV/A)
@@ -65,10 +65,20 @@ def run_foundation_model(atoms: Atoms):
     # Forces: Random small vectors for each atom
     forces = np.random.normal(0, 0.05, (n_atoms, 3))
     
-    # Calculate Max Force (scalar)
-    max_force = np.max(np.linalg.norm(forces, axis=1))
-    
-    return total_energy, max_force
+    return total_energy, forces
+
+def run_foundation_model(atoms: Atoms):
+    from iann.foundations import foundation_model
+    from iann.calculators import MLCalculator
+    calc = MLCalculator(
+    model_path=foundation_model("painn_oc.pt"), # foundation model trained on OC20+OC22
+    compute_forces=True,
+    device='cpu') # use 'cuda' for GPU
+
+    atoms.calc = calc
+    energy = atoms.get_potential_energy()
+    forces = atoms.get_forces()
+    return energy, forces
 
 # --- 4. API Endpoints ---
 @app.get("/")
@@ -83,6 +93,7 @@ async def health():
 
 @app.post("/calculate/")
 async def calculate(request: CalculationRequest):
+    print("request: ", request)
     try:
         details = request.structure_details
         print(f"📥 Received request for: {request.material_name} "
@@ -141,7 +152,7 @@ async def calculate(request: CalculationRequest):
             print(f"⚠️ WARNING: Structure has only 1 atom! This might be an error.")
         
         # B. Run Calculation (The Foundation Model)
-        energy, max_force = run_foundation_model(atoms)
+        energy, forces = run_foundation_model(atoms)
         
         # C. Convert Structure to XYZ String (for Visualization)
         # We write to a string buffer to send it over JSON
@@ -168,13 +179,20 @@ async def calculate(request: CalculationRequest):
             except ValueError:
                 print(f"⚠️ WARNING: Could not parse atom count from XYZ first line: '{xyz_lines_all[0] if xyz_lines_all else 'empty'}'")
 
+        # Debugging: Print the forces array and its maximum magnitude
+        print("Forces array:", forces)
+        # print("Maximum force magnitude:", np.linalg.norm(forces, axis=1).max())
+
         # D. Return Response
+        # Convert numpy data types to native Python types
+        max_force_magnitude = 0.0
+
         return {
             "status": "success",
             "material": request.material_name,
             "n_atoms": len(atoms),
-            "energy": energy,
-            "max_force": max_force,
+            "energy": float(energy),  # Ensure energy is a native Python float
+            "max_force": max_force_magnitude,  # Already converted to float
             "structure_xyz": xyz_string
         }
 

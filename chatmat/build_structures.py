@@ -1156,10 +1156,14 @@ def generate_structure_with_llm(description: str, provider: str = "openai",
         # Support for local Ollama models
         return generate_structure_with_ollama(description, **kwargs)
     
+    elif provider.lower() == "gemini":
+        model = kwargs.get("model", "gemini-default-model")
+        return generate_structure_with_gemini(description, api_key, model)
+    
     else:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown LLM provider: {provider}. Supported: openai, anthropic, ollama"
+            detail=f"Unknown LLM provider: {provider}. Supported: openai, anthropic, ollama, gemini"
         )
 
 
@@ -1241,5 +1245,111 @@ Return ONLY valid JSON, no additional text."""
         raise HTTPException(
             status_code=500,
             detail=f"Error generating structure with Ollama: {str(e)}"
+        )
+
+
+def generate_structure_with_gemini(description: str, api_key: str, model: str) -> Atoms:
+    """
+    Generate structure using Gemini API.
+
+    Args:
+        description: Natural language description of the structure
+        api_key: Gemini API key
+        model: Gemini model name
+
+    Returns:
+        Atoms object
+
+    Raises:
+        HTTPException: If structure cannot be generated
+    """
+    try:
+        import requests
+        import json
+        from ase import Atoms
+
+        if not api_key:
+            api_key = 'AIzaSyC2OrwSSymjjq2RVHxrKjvLkRYu7xFA2pw' # ChatMat api key from Google AI studio
+
+        # Define the Gemini API endpoint
+        gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
+        
+        print('User input:', description)
+        description = "Provide the crystal structure parameters in JSON format: symbols, positions, cell: " + description
+
+        # Prepare the request payload
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "text": description
+                        }
+                    ]
+                }
+            ]
+        }
+
+        # Send the request to the Gemini API
+        response = requests.post(
+            gemini_url,
+            headers={
+                "Content-Type": "application/json",
+                "X-goog-api-key": api_key
+            },
+            data=json.dumps(payload),
+            timeout=30
+        )
+
+        # Check for errors in the response
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Gemini API error: {response.text}"
+            )
+
+        # Parse the response JSON
+        response_data = response.json()
+        print('description of LLM input:', description)
+        print('response_data of LLM model:', response_data)
+
+        # candidates -> index 0 -> content -> parts -> index 0 -> text
+        raw_text = response_data['candidates'][0]['content']['parts'][0]['text']
+        clean_text = raw_text.replace("```json", "").replace("```", "").strip()
+        structure_data = json.loads(clean_text)
+
+        # Extract structure parameters
+        # structure_data = response_data.get("structure")
+        # if not structure_data:
+        #     raise HTTPException(
+        #         status_code=500,
+        #         detail="Invalid response from Gemini API: Missing structure data"
+        #     )
+
+        # Convert the structure data to an Atoms object
+        try:
+            atoms = Atoms(
+                symbols=structure_data["symbols"],
+                positions=structure_data["positions"],
+                cell=structure_data["cell"],
+                pbc=True
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error constructing Atoms object from Gemini response: {str(e)}"
+            )
+
+        return atoms
+
+    except ImportError:
+        raise HTTPException(
+            status_code=500,
+            detail="requests package not installed. Install with: pip install requests"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating structure with Gemini: {str(e)}"
         )
 
